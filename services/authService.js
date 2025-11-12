@@ -50,16 +50,6 @@ class authService {
         const { password_hash, ...userWithoutPassword } = user;
         return userWithoutPassword;
     }
-
-    async isAuthor(userId) {
-        const user = await this.userRepository.findById(userId);
-        return user && (user.type === 'Author' || user.type === 'Admin');
-    }
-
-    async isAdmin(userId) {
-        const user = await this.userRepository.findById(userId);
-        return user && user.type === 'Admin';
-    }
 }
 
 module.exports = new authService();

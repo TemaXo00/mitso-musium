@@ -5,12 +5,10 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const session = require('express-session');
 const RepositoryFactory = require('./factories/repositoryFactory');
-const ControllerFactory = require('./factories/controllerFactory');
 
 class Application {
     constructor() {
         this.app = express();
-        this.repositories = RepositoryFactory.getAllRepositories();
         this.setupMiddleware();
         this.setupRoutes();
         this.setupErrorHandling();
@@ -28,7 +26,7 @@ class Application {
 
         this.app.use(session({
             secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
-            resave: false,
+            resave: true,
             saveUninitialized: false,
             cookie: {
                 secure: false,
@@ -40,17 +38,20 @@ class Application {
     }
 
     async userSessionMiddleware(req, res, next) {
-        if (req.session.user) {
+        if (req.session.user && req.session.user.id) {
             try {
-                const user = await this.repositories.userRepository.findById(req.session.user.id);
+                const userRepository = RepositoryFactory.createUserRepository();
+                const user = await userRepository.findById(req.session.user.id);
                 if (user) {
                     const { password_hash, ...userWithoutPassword } = user;
                     res.locals.user = userWithoutPassword;
                     req.session.user = userWithoutPassword;
                 } else {
+                    req.session.destroy();
                     res.locals.user = null;
                 }
             } catch (err) {
+                req.session.destroy();
                 res.locals.user = null;
             }
         } else {
@@ -60,16 +61,6 @@ class Application {
     }
 
     setupRoutes() {
-        const routes = ControllerFactory.getControllerRoutes();
-
-        Object.values(routes).forEach(route => {
-            this.app.use(route.basePath, route.router);
-        });
-
-        this.setupAdditionalRoutes();
-    }
-
-    setupAdditionalRoutes() {
         const mainRoutes = require('./routes/main');
         const trendingRoutes = require('./routes/trending');
         const searchRoutes = require('./routes/search');
